@@ -1,0 +1,39 @@
+# Django and Core Dependencies
+Django==5.0.1
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.5
+python-decouple==3.8
+
+# Authentication
+djangorestframework-simplejwt==5.3.0
+
+# Database
+mysqlclient==2.2.1  # For MySQL support
+# psycopg2-binary==2.9.9  # For PostgreSQL support (uncomment if needed)
+
+# API Documentation
+drf-yasg==1.21.7
+
+# File Handling
+Pillow==10.2.0
+
+# Task Queue (Optional)
+celery==5.3.4
+redis==5.0.1
+
+# Development Tools
+django-extensions==3.2.3
+
+# Email (Optional - for advanced email features)
+# django-anymail==10.2  # For services like SendGrid, Mailgun, etc.
+
+# Testing (Optional)
+# coverage==7.3.4
+# factory-boy==3.3.0
+
+# Production (Optional)
+# gunicorn==21.2.0
+# whitenoise==6.6.0  # For static file serving
+# sentry-sdk==1.40.0  # For error tracking
+
