@@ -1,383 +1,337 @@
 <template>
-  <BNavbar toggleable="lg" variant="dark" class="app-navbar">
-    <BContainer fluid>
-      <!-- Brand -->
-      <BNavbarBrand :to="dashboardRoute" class="brand">
-        <i class="bi bi-shield-check me-2"></i>
-        Student CMS
-      </BNavbarBrand>
+  <nav class="header sticky top-0 z-40">
+    <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- Left side - Brand and mobile menu -->
+        <div class="flex items-center">
+          <!-- Mobile menu button -->
+          <button
+            @click="toggleMobileMenu"
+            class="md:hidden p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+          >
+            <Bars3Icon v-if="!showMobileMenu" class="w-6 h-6" />
+            <XMarkIcon v-else class="w-6 h-6" />
+          </button>
 
-      <!-- Mobile Toggle -->
-      <BNavbarToggle target="navbar-collapse" />
-
-      <BCollapse id="navbar-collapse" is-nav>
-        <!-- Search Bar (Desktop) -->
-        <BNavbarNav class="me-auto d-none d-lg-flex">
-          <BNavItem>
-            <div class="search-container">
-              <BInputGroup size="sm">
-                <BFormInput
-                  v-model="searchQuery"
-                  placeholder="Search complaints..."
-                  @keyup.enter="handleSearch"
-                />
-                <BInputGroupText>
-                  <i class="bi bi-search"></i>
-                </BInputGroupText>
-              </BInputGroup>
+          <!-- Brand -->
+          <router-link
+            to="/dashboard"
+            class="flex items-center space-x-3 ml-2 md:ml-0"
+          >
+            <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <AcademicCapIcon class="w-5 h-5 text-white" />
             </div>
-          </BNavItem>
-        </BNavbarNav>
+            <span class="text-xl font-bold gradient-text hidden sm:block">
+              Student Voice
+            </span>
+          </router-link>
+        </div>
 
-        <!-- Right Side Items -->
-        <BNavbarNav class="ms-auto">
+        <!-- Center - Search (hidden on mobile) -->
+        <div class="hidden md:flex flex-1 max-w-md mx-8">
+          <div class="relative w-full">
+            <MagnifyingGlassIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search complaints, users..."
+              class="w-full pl-10 pr-4 py-2 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            />
+          </div>
+        </div>
+
+        <!-- Right side - Actions and user menu -->
+        <div class="flex items-center space-x-4">
           <!-- Notifications -->
-          <BNavItem>
-            <BDropdown
-              variant="link"
-              no-caret
-              class="notification-dropdown"
-              menu-class="notification-menu"
+          <div class="relative">
+            <button
+              @click="toggleNotifications"
+              class="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200 relative"
             >
-              <template #button-content>
-                <div class="notification-icon">
-                  <i class="bi bi-bell"></i>
-                  <BBadge
-                    v-if="notificationsStore.unreadCount > 0"
-                    variant="danger"
-                    class="notification-badge"
+              <BellIcon class="w-6 h-6" />
+              <span
+                v-if="notificationsStore.unreadCount > 0"
+                class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
+              >
+                {{ notificationsStore.unreadCount > 9 ? '9+' : notificationsStore.unreadCount }}
+              </span>
+            </button>
+
+            <!-- Notifications dropdown -->
+            <transition name="dropdown">
+              <div
+                v-if="showNotifications"
+                class="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-hard border border-slate-200 dark:border-slate-700 z-50"
+              >
+                <div class="p-4 border-b border-slate-200 dark:border-slate-700">
+                  <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      Notifications
+                    </h3>
+                    <span class="text-sm text-slate-500 dark:text-slate-400">
+                      {{ notificationsStore.unreadCount }} unread
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="max-h-96 overflow-y-auto">
+                  <div v-if="notifications.length === 0" class="p-8 text-center">
+                    <BellIcon class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                    <p class="text-slate-500 dark:text-slate-400">No notifications</p>
+                  </div>
+                  
+                  <div v-else>
+                    <div
+                      v-for="notification in notifications.slice(0, 5)"
+                      :key="notification.id"
+                      @click="markAsRead(notification)"
+                      class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors duration-200 border-l-4"
+                      :class="notification.is_read ? 'border-transparent' : 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20'"
+                    >
+                      <p class="text-sm text-slate-900 dark:text-slate-100 mb-1">
+                        {{ notification.message }}
+                      </p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
+                        {{ formatDate(notification.created_at) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-if="notifications.length > 5" class="p-4 border-t border-slate-200 dark:border-slate-700">
+                  <router-link
+                    to="/notifications"
+                    class="block text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                   >
-                    {{ notificationsStore.unreadCount > 99 ? '99+' : notificationsStore.unreadCount }}
-                  </BBadge>
+                    View all notifications
+                  </router-link>
                 </div>
-              </template>
-
-              <!-- Notification Header -->
-              <div class="notification-header">
-                <h6 class="mb-0">Notifications</h6>
-                <BButton
-                  v-if="notificationsStore.unreadCount > 0"
-                  variant="link"
-                  size="sm"
-                  @click="markAllAsRead"
-                >
-                  Mark all read
-                </BButton>
               </div>
+            </transition>
+          </div>
 
-              <BDropdownDivider />
-
-              <!-- Notification List -->
-              <div class="notification-list">
-                <div
-                  v-if="notificationsStore.recentNotifications.length === 0"
-                  class="no-notifications"
-                >
-                  <i class="bi bi-bell-slash text-muted"></i>
-                  <p class="text-muted mb-0">No notifications</p>
-                </div>
-
-                <BDropdownItem
-                  v-for="notification in notificationsStore.recentNotifications"
-                  :key="notification.id"
-                  class="notification-item"
-                  :class="{ 'unread': !notification.is_read }"
-                  @click="handleNotificationClick(notification)"
-                >
-                  <div class="notification-content">
-                    <div class="notification-title">{{ notification.title }}</div>
-                    <div class="notification-message">{{ notification.message }}</div>
-                    <div class="notification-time">{{ formatTime(notification.created_at) }}</div>
-                  </div>
-                  <div v-if="!notification.is_read" class="unread-indicator"></div>
-                </BDropdownItem>
+          <!-- User menu -->
+          <div class="relative">
+            <button
+              @click="toggleUserMenu"
+              class="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+            >
+              <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm font-medium">
+                  {{ authStore.user?.first_name?.charAt(0) }}{{ authStore.user?.last_name?.charAt(0) }}
+                </span>
               </div>
+              <div class="hidden md:block text-left">
+                <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {{ authStore.user?.first_name }} {{ authStore.user?.last_name }}
+                </p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                  {{ authStore.user?.role }}
+                </p>
+              </div>
+              <ChevronDownIcon class="w-4 h-4 text-slate-400" />
+            </button>
 
-              <BDropdownDivider />
-
-              <!-- View All Link -->
-              <BDropdownItem :to="`/${authStore.userRole}/notifications`">
-                <i class="bi bi-list-ul me-2"></i>
-                View all notifications
-              </BDropdownItem>
-            </BDropdown>
-          </BNavItem>
-
-          <!-- User Menu -->
-          <BNavItem>
-            <BDropdown variant="link" no-caret class="user-dropdown">
-              <template #button-content>
-                <div class="user-info">
-                  <div class="user-avatar">
-                    {{ authStore.userInitials }}
-                  </div>
-                  <div class="user-details d-none d-md-block">
-                    <div class="user-name">{{ authStore.userName }}</div>
-                    <div class="user-role">{{ formatRole(authStore.userRole) }}</div>
-                  </div>
-                  <i class="bi bi-chevron-down ms-2"></i>
+            <!-- User dropdown -->
+            <transition name="dropdown">
+              <div
+                v-if="showUserMenu"
+                class="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-hard border border-slate-200 dark:border-slate-700 z-50"
+              >
+                <div class="p-4 border-b border-slate-200 dark:border-slate-700">
+                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    {{ authStore.user?.first_name }} {{ authStore.user?.last_name }}
+                  </p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {{ authStore.user?.email }}
+                  </p>
+                  <span class="inline-block mt-1 px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded-full capitalize">
+                    {{ authStore.user?.role }}
+                  </span>
                 </div>
-              </template>
+                
+                <div class="py-2">
+                  <router-link
+                    to="/profile"
+                    class="flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                  >
+                    <UserIcon class="w-4 h-4 mr-3" />
+                    Profile
+                  </router-link>
+                  <router-link
+                    to="/settings"
+                    class="flex items-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                  >
+                    <CogIcon class="w-4 h-4 mr-3" />
+                    Settings
+                  </router-link>
+                </div>
+                
+                <div class="py-2 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    @click="logout"
+                    class="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200"
+                  >
+                    <ArrowRightOnRectangleIcon class="w-4 h-4 mr-3" />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </transition>
+          </div>
+        </div>
+      </div>
+    </div>
 
-              <!-- User Menu Items -->
-              <BDropdownItem :to="`/${authStore.userRole}/profile`">
-                <i class="bi bi-person me-2"></i>
-                Profile
-              </BDropdownItem>
-
-              <BDropdownItem :to="`/${authStore.userRole}/notifications`">
-                <i class="bi bi-bell me-2"></i>
-                Notifications
-              </BDropdownItem>
-
-              <BDropdownDivider />
-
-              <BDropdownItem @click="handleLogout">
-                <i class="bi bi-box-arrow-right me-2"></i>
-                Logout
-              </BDropdownItem>
-            </BDropdown>
-          </BNavItem>
-        </BNavbarNav>
-      </BCollapse>
-    </BContainer>
-  </BNavbar>
+    <!-- Mobile menu -->
+    <transition name="mobile-menu">
+      <div
+        v-if="showMobileMenu"
+        class="md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-700"
+      >
+        <div class="px-4 py-4 space-y-2">
+          <!-- Mobile search -->
+          <div class="relative mb-4">
+            <MagnifyingGlassIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              class="w-full pl-10 pr-4 py-2 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <!-- Mobile navigation links would go here -->
+          <router-link
+            to="/dashboard"
+            class="block px-3 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+          >
+            Dashboard
+          </router-link>
+        </div>
+      </div>
+    </transition>
+  </nav>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { useNotificationsStore } from '@/stores/notifications'
+import { ref, onMounted, onUnmounted } from 'vue'
+import {
+  Bars3Icon,
+  XMarkIcon,
+  BellIcon,
+  MagnifyingGlassIcon,
+  UserIcon,
+  CogIcon,
+  ArrowRightOnRectangleIcon,
+  ChevronDownIcon,
+  AcademicCapIcon
+} from '@heroicons/vue/24/outline'
+import { useAuthStore } from '../../stores/auth'
+import { useNotificationsStore } from '../../stores/notifications'
 import { formatDistanceToNow } from 'date-fns'
 
-const router = useRouter()
 const authStore = useAuthStore()
 const notificationsStore = useNotificationsStore()
 
-const searchQuery = ref('')
+const showMobileMenu = ref(false)
+const showNotifications = ref(false)
+const showUserMenu = ref(false)
+const notifications = ref([])
 
-// Computed
-const dashboardRoute = computed(() => `/${authStore.userRole}/dashboard`)
-
-// Methods
-const handleSearch = () => {
-  if (searchQuery.value.trim()) {
-    router.push({
-      name: 'search-results',
-      query: { q: searchQuery.value.trim() }
-    })
-  }
+const toggleMobileMenu = () => {
+  showMobileMenu.value = !showMobileMenu.value
+  showNotifications.value = false
+  showUserMenu.value = false
 }
 
-const handleNotificationClick = async (notification) => {
-  // Mark as read
-  if (!notification.is_read) {
-    await notificationsStore.markAsRead(notification.id)
-  }
+const toggleNotifications = async () => {
+  showNotifications.value = !showNotifications.value
+  showUserMenu.value = false
+  showMobileMenu.value = false
   
-  // Navigate to related page if link exists
-  if (notification.link) {
-    router.push(notification.link)
+  if (showNotifications.value && notifications.value.length === 0) {
+    await fetchNotifications()
   }
 }
 
-const markAllAsRead = async () => {
-  await notificationsStore.markAllAsRead()
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+  showNotifications.value = false
+  showMobileMenu.value = false
 }
 
-const handleLogout = async () => {
-  await authStore.logout()
-  router.push('/login')
-}
-
-const formatRole = (role) => {
-  const roleMap = {
-    student: 'Student',
-    staff: 'Staff',
-    head: 'Department Head',
-    vc: 'Vice Chancellor',
-    admin: 'Administrator'
+const fetchNotifications = async () => {
+  try {
+    const response = await notificationsStore.fetchNotifications()
+    notifications.value = response
+  } catch (error) {
+    console.error('Error fetching notifications:', error)
   }
-  return roleMap[role] || role
 }
 
-const formatTime = (timestamp) => {
-  return formatDistanceToNow(new Date(timestamp), { addSuffix: true })
+const markAsRead = async (notification) => {
+  try {
+    await notificationsStore.markAsRead(notification.id)
+    notification.is_read = true
+    
+    if (notification.link) {
+      // Handle navigation
+      console.log('Navigate to:', notification.link)
+    }
+  } catch (error) {
+    console.error('Error marking notification as read:', error)
+  }
 }
 
-// Lifecycle
+const formatDate = (date) => {
+  return formatDistanceToNow(new Date(date), { addSuffix: true })
+}
+
+const logout = async () => {
+  try {
+    await authStore.logout()
+  } catch (error) {
+    console.error('Logout error:', error)
+  }
+}
+
+const handleClickOutside = (event) => {
+  if (!event.target.closest('.relative')) {
+    showNotifications.value = false
+    showUserMenu.value = false
+  }
+}
+
 onMounted(() => {
-  // Fetch recent notifications
-  notificationsStore.fetchNotifications({ page_size: 10 })
+  document.addEventListener('click', handleClickOutside)
+  notificationsStore.fetchUnreadCount()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
 <style scoped>
-.app-navbar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  height: 60px;
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
 }
 
-.brand {
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: white !important;
-  text-decoration: none;
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
 }
 
-.search-container {
-  width: 300px;
-  margin-left: 2rem;
+.mobile-menu-enter-active,
+.mobile-menu-leave-active {
+  transition: all 0.3s ease;
 }
 
-.notification-dropdown :deep(.btn-link) {
-  color: white !important;
-  border: none;
-  padding: 0.5rem;
-}
-
-.notification-icon {
-  position: relative;
-  font-size: 1.2rem;
-}
-
-.notification-badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  font-size: 0.7rem;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-}
-
-.notification-menu {
-  width: 350px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.notification-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.notification-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.no-notifications {
-  text-align: center;
-  padding: 2rem 1rem;
-}
-
-.no-notifications i {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.notification-item {
-  padding: 0.75rem 1rem !important;
-  border-bottom: 1px solid #f1f3f4;
-  position: relative;
-}
-
-.notification-item.unread {
-  background-color: #f8f9ff;
-}
-
-.notification-content {
-  width: 100%;
-}
-
-.notification-title {
-  font-weight: 600;
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
-  color: #333;
-}
-
-.notification-message {
-  font-size: 0.8rem;
-  color: #666;
-  margin-bottom: 0.25rem;
-  line-height: 1.3;
-}
-
-.notification-time {
-  font-size: 0.75rem;
-  color: #999;
-}
-
-.unread-indicator {
-  position: absolute;
-  top: 50%;
-  right: 1rem;
-  transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
-  background-color: #007bff;
-  border-radius: 50%;
-}
-
-.user-dropdown :deep(.btn-link) {
-  color: white !important;
-  border: none;
-  padding: 0.5rem;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff6b6b, #feca57);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.8rem;
-  color: white;
-  margin-right: 0.5rem;
-}
-
-.user-details {
-  text-align: left;
-}
-
-.user-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  line-height: 1.2;
-}
-
-.user-role {
-  font-size: 0.75rem;
-  opacity: 0.8;
-  line-height: 1.2;
-}
-
-@media (max-width: 768px) {
-  .search-container {
-    width: 100%;
-    margin: 0.5rem 0;
-  }
-  
-  .notification-menu {
-    width: 300px;
-  }
+.mobile-menu-enter-from,
+.mobile-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style>
 
