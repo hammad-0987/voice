@@ -1,67 +1,147 @@
 <template>
-  <aside class="app-sidebar" :class="{ 'collapsed': isCollapsed }">
-    <!-- Sidebar Toggle -->
-    <div class="sidebar-toggle" @click="toggleSidebar">
-      <i class="bi" :class="isCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'"></i>
+  <aside class="sidebar" :class="{ 'collapsed': isCollapsed }">
+    <!-- Sidebar Header -->
+    <div class="sidebar-header">
+      <div class="flex items-center justify-between">
+        <div v-if="!isCollapsed" class="flex items-center space-x-3">
+          <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <AcademicCapIcon class="w-5 h-5 text-white" />
+          </div>
+          <span class="text-lg font-bold gradient-text">Student Voice</span>
+        </div>
+        
+        <button
+          @click="toggleSidebar"
+          class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+        >
+          <ChevronLeftIcon v-if="!isCollapsed" class="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <ChevronRightIcon v-else class="w-5 h-5 text-slate-600 dark:text-slate-400" />
+        </button>
+      </div>
     </div>
 
-    <!-- Sidebar Content -->
-    <div class="sidebar-content">
-      <!-- User Info -->
-      <div class="user-section" v-if="!isCollapsed">
-        <div class="user-avatar">
-          {{ authStore.userInitials }}
+    <!-- User Profile Section -->
+    <div v-if="!isCollapsed" class="user-profile">
+      <div class="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+          <span class="text-white text-sm font-medium">
+            {{ authStore.user?.first_name?.charAt(0) }}{{ authStore.user?.last_name?.charAt(0) }}
+          </span>
         </div>
-        <div class="user-info">
-          <div class="user-name">{{ authStore.userName }}</div>
-          <div class="user-role">{{ formatRole(authStore.userRole) }}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+            {{ authStore.user?.first_name }} {{ authStore.user?.last_name }}
+          </p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 capitalize">
+            {{ authStore.user?.role }}
+          </p>
         </div>
       </div>
+    </div>
 
-      <!-- Navigation Menu -->
-      <nav class="sidebar-nav">
-        <ul class="nav-list">
-          <li
-            v-for="item in navigationItems"
-            :key="item.name"
-            class="nav-item"
-            :class="{ 'active': isActiveRoute(item.route) }"
-          >
-            <router-link
-              :to="item.route"
-              class="nav-link"
-              :title="isCollapsed ? item.label : ''"
-            >
-              <i class="nav-icon" :class="item.icon"></i>
-              <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
-              <BBadge
-                v-if="item.badge && !isCollapsed"
-                :variant="item.badgeVariant || 'primary'"
-                class="nav-badge"
+    <!-- Navigation Menu -->
+    <nav class="sidebar-nav">
+      <div class="space-y-2">
+        <!-- Main Navigation -->
+        <div v-for="section in navigationSections" :key="section.title" class="nav-section">
+          <h3 v-if="!isCollapsed && section.title" class="nav-section-title">
+            {{ section.title }}
+          </h3>
+          
+          <ul class="space-y-1">
+            <li v-for="item in section.items" :key="item.name">
+              <!-- Regular nav item -->
+              <router-link
+                v-if="!item.children"
+                :to="item.route"
+                class="nav-link"
+                :class="{ 'active': isActiveRoute(item.route) }"
+                :title="isCollapsed ? item.label : ''"
               >
-                {{ item.badge }}
-              </BBadge>
-            </router-link>
-          </li>
-        </ul>
-      </nav>
+                <component :is="item.icon" class="nav-icon" />
+                <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
+                <span
+                  v-if="item.badge && !isCollapsed"
+                  class="nav-badge"
+                  :class="getBadgeClass(item.badgeType)"
+                >
+                  {{ item.badge }}
+                </span>
+              </router-link>
 
-      <!-- Quick Actions -->
-      <div v-if="!isCollapsed && quickActions.length > 0" class="quick-actions">
-        <div class="section-title">Quick Actions</div>
-        <div class="action-buttons">
-          <BButton
-            v-for="action in quickActions"
-            :key="action.name"
-            :variant="action.variant || 'outline-primary'"
-            size="sm"
-            class="action-btn"
-            @click="handleQuickAction(action)"
-          >
-            <i :class="action.icon" class="me-1"></i>
-            {{ action.label }}
-          </BButton>
+              <!-- Expandable nav item -->
+              <div v-else>
+                <button
+                  @click="toggleSubmenu(item.name)"
+                  class="nav-link w-full"
+                  :class="{ 'active': hasActiveChild(item.children) }"
+                >
+                  <component :is="item.icon" class="nav-icon" />
+                  <span v-if="!isCollapsed" class="nav-label flex-1 text-left">{{ item.label }}</span>
+                  <ChevronDownIcon
+                    v-if="!isCollapsed"
+                    class="w-4 h-4 transition-transform duration-200"
+                    :class="{ 'rotate-180': expandedMenus.includes(item.name) }"
+                  />
+                </button>
+                
+                <!-- Submenu -->
+                <transition name="submenu">
+                  <ul
+                    v-if="!isCollapsed && expandedMenus.includes(item.name)"
+                    class="submenu"
+                  >
+                    <li v-for="child in item.children" :key="child.name">
+                      <router-link
+                        :to="child.route"
+                        class="submenu-link"
+                        :class="{ 'active': isActiveRoute(child.route) }"
+                      >
+                        <component :is="child.icon" class="submenu-icon" />
+                        <span class="submenu-label">{{ child.label }}</span>
+                        <span
+                          v-if="child.badge"
+                          class="nav-badge"
+                          :class="getBadgeClass(child.badgeType)"
+                        >
+                          {{ child.badge }}
+                        </span>
+                      </router-link>
+                    </li>
+                  </ul>
+                </transition>
+              </div>
+            </li>
+          </ul>
         </div>
+      </div>
+    </nav>
+
+    <!-- Quick Actions -->
+    <div v-if="!isCollapsed && quickActions.length > 0" class="quick-actions">
+      <h3 class="nav-section-title">Quick Actions</h3>
+      <div class="space-y-2">
+        <button
+          v-for="action in quickActions"
+          :key="action.name"
+          @click="action.handler"
+          class="quick-action-btn"
+        >
+          <component :is="action.icon" class="w-4 h-4" />
+          <span class="text-sm font-medium">{{ action.label }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+      <div v-if="!isCollapsed" class="text-center">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+          Student Voice CMS v2.0
+        </p>
+        <p class="text-xs text-slate-400 dark:text-slate-500">
+          © 2024 All rights reserved
+        </p>
       </div>
     </div>
   </aside>
@@ -69,596 +149,460 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { useNotificationsStore } from '@/stores/notifications'
+import { useRoute } from 'vue-router'
+import {
+  AcademicCapIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  HomeIcon,
+  DocumentTextIcon,
+  PlusCircleIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
+  ChartBarIcon,
+  DocumentChartBarIcon,
+  BellIcon,
+  UserIcon,
+  CogIcon,
+  ExclamationTriangleIcon,
+  ClipboardDocumentListIcon,
+  ArrowRightOnRectangleIcon
+} from '@heroicons/vue/24/outline'
+import { useAuthStore } from '../../stores/auth'
+import { useNotificationsStore } from '../../stores/notifications'
 
-const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
 const notificationsStore = useNotificationsStore()
+const route = useRoute()
 
 const isCollapsed = ref(false)
+const expandedMenus = ref([])
 
-// Methods
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
+  // Save preference to localStorage
+  localStorage.setItem('sidebarCollapsed', isCollapsed.value.toString())
+}
+
+const toggleSubmenu = (menuName) => {
+  const index = expandedMenus.value.indexOf(menuName)
+  if (index > -1) {
+    expandedMenus.value.splice(index, 1)
+  } else {
+    expandedMenus.value.push(menuName)
+  }
 }
 
 const isActiveRoute = (routePath) => {
-  return route.path.startsWith(routePath)
+  return route.path === routePath || route.path.startsWith(routePath + '/')
 }
 
-const formatRole = (role) => {
-  const roleMap = {
-    student: 'Student',
-    staff: 'Staff',
-    head: 'Department Head',
-    vc: 'Vice Chancellor',
-    admin: 'Administrator'
+const hasActiveChild = (children) => {
+  return children.some(child => isActiveRoute(child.route))
+}
+
+const getBadgeClass = (type) => {
+  const classes = {
+    success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+    danger: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    default: 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
   }
-  return roleMap[role] || role
+  return classes[type] || classes.default
 }
 
-const handleQuickAction = (action) => {
-  if (action.route) {
-    router.push(action.route)
-  } else if (action.action) {
-    action.action()
+// Navigation configuration based on user role
+const navigationSections = computed(() => {
+  const userRole = authStore.user?.role
+  const sections = []
+
+  // Main section - always present
+  const mainSection = {
+    title: 'Main',
+    items: [
+      {
+        name: 'dashboard',
+        label: 'Dashboard',
+        route: '/dashboard',
+        icon: HomeIcon
+      }
+    ]
   }
-}
 
-// Computed navigation items based on user role
-const navigationItems = computed(() => {
-  const userRole = authStore.userRole
-  const baseItems = []
-
-  switch (userRole) {
-    case 'student':
-      return [
+  // Role-specific sections
+  if (userRole === 'student') {
+    sections.push(mainSection)
+    sections.push({
+      title: 'Complaints',
+      items: [
         {
-          name: 'dashboard',
-          label: 'Dashboard',
-          icon: 'bi bi-speedometer2',
-          route: '/student/dashboard'
+          name: 'my-complaints',
+          label: 'My Complaints',
+          route: '/complaints',
+          icon: DocumentTextIcon,
+          badge: '3',
+          badgeType: 'info'
         },
         {
           name: 'file-complaint',
           label: 'File Complaint',
-          icon: 'bi bi-plus-circle',
-          route: '/student/file-complaint'
-        },
+          route: '/complaints/create',
+          icon: PlusCircleIcon
+        }
+      ]
+    })
+    sections.push({
+      title: 'Requests',
+      items: [
         {
-          name: 'my-complaints',
-          label: 'My Complaints',
-          icon: 'bi bi-list-ul',
-          route: '/student/complaints'
+          name: 'withdrawals',
+          label: 'Withdrawal Requests',
+          route: '/withdrawals',
+          icon: ArrowRightOnRectangleIcon
+        }
+      ]
+    })
+  } else if (userRole === 'staff') {
+    sections.push(mainSection)
+    sections.push({
+      title: 'Management',
+      items: [
+        {
+          name: 'complaints',
+          label: 'Complaints',
+          route: '/complaints',
+          icon: DocumentTextIcon,
+          badge: '12',
+          badgeType: 'warning'
         },
         {
           name: 'withdrawals',
           label: 'Withdrawal Requests',
-          icon: 'bi bi-file-earmark-text',
-          route: '/student/withdrawals'
-        },
-        {
-          name: 'notifications',
-          label: 'Notifications',
-          icon: 'bi bi-bell',
-          route: '/student/notifications',
-          badge: notificationsStore.unreadCount > 0 ? notificationsStore.unreadCount : null,
-          badgeVariant: 'danger'
-        },
-        {
-          name: 'profile',
-          label: 'Profile',
-          icon: 'bi bi-person',
-          route: '/student/profile'
+          route: '/withdrawals',
+          icon: ArrowRightOnRectangleIcon,
+          badge: '5',
+          badgeType: 'info'
         }
       ]
-
-    case 'staff':
-      return [
+    })
+  } else if (userRole === 'head') {
+    sections.push(mainSection)
+    sections.push({
+      title: 'Department',
+      items: [
         {
-          name: 'dashboard',
-          label: 'Dashboard',
-          icon: 'bi bi-speedometer2',
-          route: '/staff/dashboard'
-        },
-        {
-          name: 'assigned-complaints',
-          label: 'Assigned Complaints',
-          icon: 'bi bi-clipboard-check',
-          route: '/staff/complaints'
-        },
-        {
-          name: 'review-withdrawals',
-          label: 'Review Withdrawals',
-          icon: 'bi bi-file-earmark-check',
-          route: '/staff/withdrawals'
-        },
-        {
-          name: 'notifications',
-          label: 'Notifications',
-          icon: 'bi bi-bell',
-          route: '/staff/notifications',
-          badge: notificationsStore.unreadCount > 0 ? notificationsStore.unreadCount : null,
-          badgeVariant: 'danger'
-        }
-      ]
-
-    case 'head':
-      return [
-        {
-          name: 'dashboard',
-          label: 'Dashboard',
-          icon: 'bi bi-speedometer2',
-          route: '/head/dashboard'
-        },
-        {
-          name: 'department-complaints',
-          label: 'Department Complaints',
-          icon: 'bi bi-building',
-          route: '/head/complaints'
+          name: 'complaints',
+          label: 'Complaints',
+          route: '/complaints',
+          icon: DocumentTextIcon,
+          badge: '25',
+          badgeType: 'warning'
         },
         {
           name: 'analytics',
           label: 'Analytics',
-          icon: 'bi bi-graph-up',
-          route: '/head/analytics'
+          route: '/analytics',
+          icon: ChartBarIcon
         },
         {
-          name: 'manage-staff',
-          label: 'Manage Staff',
-          icon: 'bi bi-people',
-          route: '/head/staff'
-        },
-        {
-          name: 'feedback',
-          label: 'Feedback',
-          icon: 'bi bi-chat-square-text',
-          route: '/head/feedback'
-        },
-        {
-          name: 'notifications',
-          label: 'Notifications',
-          icon: 'bi bi-bell',
-          route: '/head/notifications',
-          badge: notificationsStore.unreadCount > 0 ? notificationsStore.unreadCount : null,
-          badgeVariant: 'danger'
+          name: 'withdrawals',
+          label: 'Withdrawal Requests',
+          route: '/withdrawals',
+          icon: ArrowRightOnRectangleIcon,
+          badge: '8',
+          badgeType: 'info'
         }
       ]
-
-    case 'vc':
-      return [
+    })
+  } else if (userRole === 'vc') {
+    sections.push(mainSection)
+    sections.push({
+      title: 'System Overview',
+      items: [
         {
-          name: 'dashboard',
-          label: 'Dashboard',
-          icon: 'bi bi-speedometer2',
-          route: '/vc/dashboard'
-        },
-        {
-          name: 'all-complaints',
+          name: 'complaints',
           label: 'All Complaints',
-          icon: 'bi bi-list-check',
-          route: '/vc/complaints'
+          route: '/complaints',
+          icon: DocumentTextIcon,
+          badge: '156',
+          badgeType: 'warning'
         },
         {
-          name: 'global-analytics',
-          label: 'Global Analytics',
-          icon: 'bi bi-graph-up-arrow',
-          route: '/vc/analytics'
+          name: 'analytics',
+          label: 'Analytics',
+          route: '/analytics',
+          icon: ChartBarIcon
         },
         {
-          name: 'system-reports',
-          label: 'System Reports',
-          icon: 'bi bi-file-earmark-bar-graph',
-          route: '/vc/reports'
-        },
-        {
-          name: 'feedback',
-          label: 'Feedback',
-          icon: 'bi bi-chat-square-text',
-          route: '/vc/feedback'
-        },
-        {
-          name: 'notifications',
-          label: 'Notifications',
-          icon: 'bi bi-bell',
-          route: '/vc/notifications',
-          badge: notificationsStore.unreadCount > 0 ? notificationsStore.unreadCount : null,
-          badgeVariant: 'danger'
+          name: 'reports',
+          label: 'Reports',
+          route: '/reports',
+          icon: DocumentChartBarIcon
         }
       ]
-
-    case 'admin':
-      return [
+    })
+  } else if (userRole === 'admin') {
+    sections.push(mainSection)
+    sections.push({
+      title: 'Administration',
+      items: [
         {
-          name: 'dashboard',
-          label: 'Dashboard',
-          icon: 'bi bi-speedometer2',
-          route: '/admin/dashboard'
-        },
-        {
-          name: 'user-management',
+          name: 'users',
           label: 'User Management',
-          icon: 'bi bi-people-fill',
-          route: '/admin/users'
+          route: '/users',
+          icon: UserGroupIcon
         },
         {
-          name: 'department-management',
+          name: 'departments',
           label: 'Departments',
-          icon: 'bi bi-building-fill',
-          route: '/admin/departments'
+          route: '/departments',
+          icon: BuildingOfficeIcon
         },
         {
-          name: 'system-settings',
-          label: 'System Settings',
-          icon: 'bi bi-gear-fill',
-          route: '/admin/settings'
-        },
-        {
-          name: 'activity-logs',
-          label: 'Activity Logs',
-          icon: 'bi bi-journal-text',
-          route: '/admin/logs'
-        },
-        {
-          name: 'feedback',
-          label: 'All Feedback',
-          icon: 'bi bi-chat-square-text-fill',
-          route: '/admin/feedback'
-        },
-        {
-          name: 'notifications',
-          label: 'Notifications',
-          icon: 'bi bi-bell-fill',
-          route: '/admin/notifications',
-          badge: notificationsStore.unreadCount > 0 ? notificationsStore.unreadCount : null,
-          badgeVariant: 'danger'
+          name: 'complaints',
+          label: 'All Complaints',
+          route: '/complaints',
+          icon: DocumentTextIcon,
+          badge: '156',
+          badgeType: 'warning'
         }
       ]
-
-    default:
-      return []
+    })
+    sections.push({
+      title: 'Analytics',
+      items: [
+        {
+          name: 'analytics',
+          label: 'System Analytics',
+          route: '/analytics',
+          icon: ChartBarIcon
+        },
+        {
+          name: 'reports',
+          label: 'Reports',
+          route: '/reports',
+          icon: DocumentChartBarIcon
+        }
+      ]
+    })
   }
+
+  // Settings section - always present
+  sections.push({
+    title: 'Account',
+    items: [
+      {
+        name: 'notifications',
+        label: 'Notifications',
+        route: '/notifications',
+        icon: BellIcon,
+        badge: notificationsStore.unreadCount > 0 ? notificationsStore.unreadCount.toString() : null,
+        badgeType: 'danger'
+      },
+      {
+        name: 'profile',
+        label: 'Profile',
+        route: '/profile',
+        icon: UserIcon
+      },
+      {
+        name: 'settings',
+        label: 'Settings',
+        route: '/settings',
+        icon: CogIcon
+      }
+    ]
+  })
+
+  return sections
 })
 
 // Quick actions based on user role
 const quickActions = computed(() => {
-  const userRole = authStore.userRole
+  const userRole = authStore.user?.role
+  const actions = []
 
-  switch (userRole) {
-    case 'student':
-      return [
-        {
-          name: 'file-complaint',
-          label: 'File Complaint',
-          icon: 'bi bi-plus-circle',
-          variant: 'primary',
-          route: '/student/file-complaint'
-        },
-        {
-          name: 'track-complaint',
-          label: 'Track Complaint',
-          icon: 'bi bi-search',
-          variant: 'outline-secondary',
-          route: '/track'
-        }
-      ]
-
-    case 'staff':
-      return [
-        {
-          name: 'pending-complaints',
-          label: 'Pending Review',
-          icon: 'bi bi-clock',
-          variant: 'warning',
-          route: '/staff/complaints?status=pending'
-        }
-      ]
-
-    case 'head':
-      return [
-        {
-          name: 'department-overview',
-          label: 'Dept. Overview',
-          icon: 'bi bi-pie-chart',
-          variant: 'info',
-          route: '/head/analytics'
-        }
-      ]
-
-    case 'vc':
-      return [
-        {
-          name: 'system-overview',
-          label: 'System Overview',
-          icon: 'bi bi-graph-up',
-          variant: 'success',
-          route: '/vc/analytics'
-        }
-      ]
-
-    case 'admin':
-      return [
-        {
-          name: 'create-user',
-          label: 'Create User',
-          icon: 'bi bi-person-plus',
-          variant: 'primary',
-          route: '/admin/users?action=create'
-        }
-      ]
-
-    default:
-      return []
+  if (userRole === 'student') {
+    actions.push({
+      name: 'file-complaint',
+      label: 'File Complaint',
+      icon: PlusCircleIcon,
+      handler: () => {
+        // Navigate to file complaint
+        console.log('Navigate to file complaint')
+      }
+    })
+  } else if (['staff', 'head', 'vc', 'admin'].includes(userRole)) {
+    actions.push({
+      name: 'urgent-complaints',
+      label: 'Urgent Complaints',
+      icon: ExclamationTriangleIcon,
+      handler: () => {
+        // Navigate to urgent complaints
+        console.log('Navigate to urgent complaints')
+      }
+    })
   }
+
+  return actions
 })
 
-// Responsive behavior
 onMounted(() => {
-  const handleResize = () => {
-    if (window.innerWidth < 768) {
-      isCollapsed.value = true
-    }
-  }
-
-  window.addEventListener('resize', handleResize)
-  handleResize() // Check initial size
-
-  return () => {
-    window.removeEventListener('resize', handleResize)
+  // Restore sidebar state from localStorage
+  const savedState = localStorage.getItem('sidebarCollapsed')
+  if (savedState !== null) {
+    isCollapsed.value = savedState === 'true'
   }
 })
 </script>
 
 <style scoped>
-.app-sidebar {
-  width: 280px;
-  background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
-  color: white;
-  transition: width 0.3s ease;
-  position: relative;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+.sidebar {
+  @apply fixed left-0 top-16 h-[calc(100vh-4rem)] w-64;
+  @apply bg-white/80 dark:bg-slate-900/80;
+  @apply backdrop-blur-xl backdrop-saturate-150;
+  @apply border-r border-slate-200 dark:border-slate-700;
+  @apply shadow-soft;
+  @apply transition-all duration-300 ease-in-out;
+  @apply flex flex-col;
+  @apply z-30;
 }
 
-.app-sidebar.collapsed {
-  width: 70px;
+.sidebar.collapsed {
+  @apply w-16;
 }
 
-.sidebar-toggle {
-  position: absolute;
-  top: 10px;
-  right: -15px;
-  width: 30px;
-  height: 30px;
-  background: #3498db;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+.sidebar-header {
+  @apply p-4 border-b border-slate-200 dark:border-slate-700;
+  @apply flex-shrink-0;
 }
 
-.sidebar-toggle:hover {
-  background: #2980b9;
-  transform: scale(1.1);
-}
-
-.sidebar-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem 0;
-}
-
-.user-section {
-  padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-}
-
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff6b6b, #feca57);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 1rem;
-  margin-right: 0.75rem;
-  flex-shrink: 0;
-}
-
-.user-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.user-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-role {
-  font-size: 0.75rem;
-  opacity: 0.8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.user-profile {
+  @apply p-4 flex-shrink-0;
 }
 
 .sidebar-nav {
-  flex: 1;
-  overflow-y: auto;
+  @apply flex-1 overflow-y-auto p-4;
+  @apply scrollbar-hide;
 }
 
-.nav-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.nav-section {
+  @apply mb-6;
 }
 
-.nav-item {
-  margin-bottom: 0.25rem;
+.nav-section-title {
+  @apply text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider;
+  @apply mb-3 px-3;
 }
 
 .nav-link {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  color: rgba(255, 255, 255, 0.8);
-  text-decoration: none;
-  transition: all 0.3s ease;
-  position: relative;
+  @apply flex items-center px-3 py-2.5 rounded-xl;
+  @apply text-slate-600 dark:text-slate-400;
+  @apply hover:text-slate-900 dark:hover:text-slate-100;
+  @apply hover:bg-slate-100 dark:hover:bg-slate-700/50;
+  @apply transition-all duration-200;
+  @apply group;
 }
 
-.nav-link:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  transform: translateX(5px);
-}
-
-.nav-item.active .nav-link {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.nav-item.active .nav-link::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: #ecf0f1;
+.nav-link.active {
+  @apply bg-gradient-to-r from-blue-500/10 to-indigo-500/10;
+  @apply text-blue-600 dark:text-blue-400;
+  @apply border-r-2 border-blue-500;
+  @apply font-medium;
 }
 
 .nav-icon {
-  font-size: 1.1rem;
-  margin-right: 0.75rem;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
+  @apply w-5 h-5 flex-shrink-0;
+  @apply transition-colors duration-200;
 }
 
 .nav-label {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  @apply ml-3 text-sm font-medium;
+  @apply transition-all duration-200;
 }
 
 .nav-badge {
-  margin-left: auto;
-  font-size: 0.7rem;
+  @apply ml-auto px-2 py-1 text-xs font-medium rounded-full;
+  @apply transition-all duration-200;
+}
+
+.submenu {
+  @apply mt-2 ml-8 space-y-1;
+}
+
+.submenu-link {
+  @apply flex items-center px-3 py-2 rounded-lg;
+  @apply text-slate-500 dark:text-slate-500;
+  @apply hover:text-slate-700 dark:hover:text-slate-300;
+  @apply hover:bg-slate-50 dark:hover:bg-slate-700/30;
+  @apply transition-all duration-200;
+  @apply text-sm;
+}
+
+.submenu-link.active {
+  @apply bg-blue-50 dark:bg-blue-900/20;
+  @apply text-blue-600 dark:text-blue-400;
+  @apply font-medium;
+}
+
+.submenu-icon {
+  @apply w-4 h-4 flex-shrink-0;
+}
+
+.submenu-label {
+  @apply ml-3;
 }
 
 .quick-actions {
-  padding: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  @apply p-4 border-t border-slate-200 dark:border-slate-700;
+  @apply flex-shrink-0;
 }
 
-.section-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.quick-action-btn {
+  @apply w-full flex items-center space-x-3 px-3 py-2 rounded-lg;
+  @apply bg-gradient-to-r from-blue-500 to-indigo-500;
+  @apply text-white hover:from-blue-600 hover:to-indigo-600;
+  @apply transition-all duration-200;
+  @apply transform hover:scale-105 active:scale-95;
 }
 
-.action-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.sidebar-footer {
+  @apply p-4 border-t border-slate-200 dark:border-slate-700;
+  @apply flex-shrink-0;
 }
 
-.action-btn {
-  justify-content: flex-start;
-  text-align: left;
-  border-radius: 6px;
-  font-size: 0.8rem;
+/* Submenu animation */
+.submenu-enter-active,
+.submenu-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
 }
 
-/* Collapsed state styles */
-.app-sidebar.collapsed .user-section {
-  justify-content: center;
-  padding: 1rem 0.5rem;
+.submenu-enter-from,
+.submenu-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-10px);
 }
 
-.app-sidebar.collapsed .user-info {
-  display: none;
+.submenu-enter-to,
+.submenu-leave-from {
+  opacity: 1;
+  max-height: 200px;
+  transform: translateY(0);
 }
 
-.app-sidebar.collapsed .nav-link {
-  justify-content: center;
-  padding: 0.75rem 0.5rem;
-}
-
-.app-sidebar.collapsed .nav-label,
-.app-sidebar.collapsed .nav-badge {
-  display: none;
-}
-
-.app-sidebar.collapsed .nav-icon {
-  margin-right: 0;
-}
-
-.app-sidebar.collapsed .quick-actions {
-  display: none;
-}
-
-/* Mobile styles */
+/* Mobile responsiveness */
 @media (max-width: 768px) {
-  .app-sidebar {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    height: calc(100vh - 60px);
-    z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
+  .sidebar {
+    @apply transform -translate-x-full;
   }
-
-  .app-sidebar:not(.collapsed) {
-    transform: translateX(0);
+  
+  .sidebar.show {
+    @apply translate-x-0;
   }
-
-  .sidebar-toggle {
-    display: none;
-  }
-}
-
-/* Scrollbar styling */
-.sidebar-nav::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-nav::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
-}
-
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
 }
 </style>
 
